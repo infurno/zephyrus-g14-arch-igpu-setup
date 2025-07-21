@@ -1,0 +1,41 @@
+# NVIDIA GPU switching and offload management rules
+# Handles GPU switching events and automatic power management
+
+# NVIDIA GPU hotplug detection and management
+ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x030000", RUN+="/usr/local/bin/gpu-state-manager gpu-added"
+ACTION=="remove", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x030000", RUN+="/usr/local/bin/gpu-state-manager gpu-removed"
+
+# Graphics driver loading events
+ACTION=="add", SUBSYSTEM=="module", KERNEL=="nvidia", RUN+="/usr/local/bin/gpu-state-manager nvidia-loaded"
+ACTION=="remove", SUBSYSTEM=="module", KERNEL=="nvidia", RUN+="/usr/local/bin/gpu-state-manager nvidia-unloaded"
+
+# bbswitch module events
+ACTION=="add", SUBSYSTEM=="module", KERNEL=="bbswitch", RUN+="/usr/local/bin/gpu-state-manager bbswitch-loaded"
+ACTION=="remove", SUBSYSTEM=="module", KERNEL=="bbswitch", RUN+="/usr/local/bin/gpu-state-manager bbswitch-unloaded"
+
+# DRM device events for GPU switching
+ACTION=="add", SUBSYSTEM=="drm", KERNEL=="card*", ATTR{device/vendor}=="0x10de", RUN+="/usr/local/bin/gpu-state-manager drm-nvidia-added"
+ACTION=="add", SUBSYSTEM=="drm", KERNEL=="card*", ATTR{device/vendor}=="0x1002", RUN+="/usr/local/bin/gpu-state-manager drm-amd-added"
+
+# X11 display server events
+ACTION=="add", SUBSYSTEM=="graphics", KERNEL=="fb*", RUN+="/usr/local/bin/gpu-state-manager framebuffer-added"
+
+# Power button events for GPU power management
+ACTION=="button", SUBSYSTEM=="input", KERNEL=="event*", ENV{ID_INPUT_KEY}=="1", RUN+="/usr/local/bin/gpu-state-manager power-button"
+
+# Lid switch events for power management
+ACTION=="switch", SUBSYSTEM=="input", KERNEL=="event*", ENV{SW_LID}=="1", RUN+="/usr/local/bin/gpu-state-manager lid-closed"
+ACTION=="switch", SUBSYSTEM=="input", KERNEL=="event*", ENV{SW_LID}=="0", RUN+="/usr/local/bin/gpu-state-manager lid-opened"
+
+# AC adapter events for automatic GPU power management
+SUBSYSTEM=="power_supply", KERNEL=="A[CD]*", ATTR{online}=="0", RUN+="/usr/local/bin/gpu-state-manager ac-disconnected"
+SUBSYSTEM=="power_supply", KERNEL=="A[CD]*", ATTR{online}=="1", RUN+="/usr/local/bin/gpu-state-manager ac-connected"
+
+# Battery events for power-aware GPU management
+SUBSYSTEM=="power_supply", KERNEL=="BAT*", ATTR{status}=="Discharging", RUN+="/usr/local/bin/gpu-state-manager battery-discharging"
+SUBSYSTEM=="power_supply", KERNEL=="BAT*", ATTR{status}=="Charging", RUN+="/usr/local/bin/gpu-state-manager battery-charging"
+SUBSYSTEM=="power_supply", KERNEL=="BAT*", ATTR{status}=="Full", RUN+="/usr/local/bin/gpu-state-manager battery-full"
+
+# Thermal events for GPU throttling
+SUBSYSTEM=="thermal", KERNEL=="thermal_zone*", ATTR{temp}>="75000", RUN+="/usr/local/bin/gpu-state-manager thermal-warning"
+SUBSYSTEM=="thermal", KERNEL=="thermal_zone*", ATTR{temp}>="85000", RUN+="/usr/local/bin/gpu-state-manager thermal-critical"

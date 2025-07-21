@@ -1,0 +1,56 @@
+# Hybrid GPU Configuration Template for Zephyrus G14
+# Generated from template based on hardware: ${laptop_model}
+# Primary GPU Mode: ${primary_gpu_mode}
+
+Section "ServerLayout"
+    Identifier "layout"
+    Screen 0 "amd"
+    Option "AllowNVIDIAGPUScreens"
+EndSection
+
+Section "Device"
+    Identifier "amd"
+    Driver "amdgpu"
+    BusID "${amd_gpu_busid:-PCI:5:0:0}"
+    Option "TearFree" "true"
+    Option "DRI" "3"
+    Option "VariableRefresh" "true"
+EndSection
+
+Section "Screen"
+    Identifier "amd"
+    Device "amd"
+    Monitor "eDP-1"
+    DefaultDepth 24
+    SubSection "Display"
+        Depth 24
+        Modes "2560x1600" "1920x1200" "1680x1050" "1280x800"
+    EndSubSection
+EndSection
+
+Section "Monitor"
+    Identifier "eDP-1"
+    Option "PreferredMode" "2560x1600"
+    Option "DPMS" "true"
+EndSection
+
+# NVIDIA GPU Configuration (for offload rendering)
+Section "Device"
+    Identifier "nvidia"
+    Driver "nvidia"
+    BusID "${nvidia_gpu_busid:-PCI:1:0:0}"
+    Option "AllowEmptyInitialConfiguration"
+EndSection
+
+# External display support
+Section "Monitor"
+    Identifier "HDMI-A-1"
+    Option "RightOf" "eDP-1"
+    Option "PreferredMode" "auto"
+EndSection
+
+Section "Monitor"
+    Identifier "DP-1"
+    Option "RightOf" "eDP-1"
+    Option "PreferredMode" "auto"
+EndSection

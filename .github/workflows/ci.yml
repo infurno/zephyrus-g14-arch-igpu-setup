@@ -1,0 +1,243 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run weekly to catch dependency issues
+    - cron: '0 0 * * 0'
+
+jobs:
+  lint-and-validate:
+    name: Lint and Validate
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install shellcheck
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y shellcheck
+        
+    - name: Lint shell scripts
+      run: |
+        find . -name "*.sh" -type f | xargs shellcheck -e SC1091,SC2034
+        
+    - name: Validate script syntax
+      run: |
+        find . -name "*.sh" -type f -exec bash -n {} \;
+        
+    - name: Check file permissions
+      run: |
+        # Check that main scripts are executable
+        test -x setup.sh || (echo "setup.sh is not executable" && exit 1)
+        find scripts/ -name "*.sh" -type f | while read -r script; do
+          if [[ ! -x "$script" ]]; then
+            echo "$script is not executable"
+            exit 1
+          fi
+        done
+        
+    - name: Validate documentation
+      run: |
+        # Check for broken markdown links (basic check)
+        grep -r "\[.*\](.*)" docs/ README.md CONTRIBUTING.md || true
+        
+        # Ensure all referenced files exist
+        if grep -r "docs/" README.md | grep -o 'docs/[^)]*' | while read -r file; do
+          if [[ ! -f "$file" ]]; then
+            echo "Referenced file does not exist: $file"
+            exit 1
+          fi
+        done; then
+          echo "All documentation references are valid"
+        fi
+
+  test-dry-run:
+    name: Test Dry Run
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Test setup script dry run
+      run: |
+        chmod +x setup.sh
+        ./setup.sh --dry-run --verbose
+        
+    - name: Test release script
+      run: |
+        chmod +x scripts/release.sh
+        ./scripts/release.sh validate
+        ./scripts/release.sh version
+
+  test-configuration:
+    name: Test Configuration Files
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Validate Xorg configuration
+      run: |
+        # Basic syntax validation for Xorg config
+        if [[ -f configs/xorg/10-hybrid.conf ]]; then
+          echo "Validating Xorg configuration..."
+          # Check for basic syntax issues
+          grep -E '^[[:space:]]*#|^[[:space:]]*$|^[[:space:]]*[A-Za-z]' configs/xorg/10-hybrid.conf > /dev/null
+        fi
+        
+    - name: Validate systemd service files
+      run: |
+        find configs/systemd/ -name "*.service" -type f | while read -r service; do
+          echo "Validating systemd service: $service"
+          # Basic validation - check for required sections
+          grep -q '\[Unit\]' "$service" || (echo "Missing [Unit] section in $service" && exit 1)
+          grep -q '\[Service\]' "$service" || (echo "Missing [Service] section in $service" && exit 1)
+        done
+        
+    - name: Validate udev rules
+      run: |
+        find configs/udev/ -name "*.rules" -type f | while read -r rule; do
+          echo "Validating udev rule: $rule"
+          # Check for basic syntax
+          if ! grep -E '^[[:space:]]*#|^[[:space:]]*$|^[A-Z].*=' "$rule" > /dev/null; then
+            echo "Potential syntax issue in $rule"
+          fi
+        done
+
+  test-scripts:
+    name: Test Helper Scripts
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Make scripts executable
+      run: |
+        find scripts/ -name "*.sh" -type f -exec chmod +x {} \;
+        
+    - name: Test script help functions
+      run: |
+        # Test scripts that have help options
+        scripts/release.sh help || true
+        
+    - name: Test configuration backup script
+      run: |
+        if [[ -f scripts/config-backup.sh ]]; then
+          chmod +x scripts/config-backup.sh
+          # Test dry run mode if available
+          ./scripts/config-backup.sh --help || true
+        fi
+
+  test-documentation:
+    name: Test Documentation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install markdown linter
+      run: |
+        npm install -g markdownlint-cli
+        
+    - name: Lint markdown files
+      run: |
+        markdownlint README.md CONTRIBUTING.md CHANGELOG.md docs/*.md || true
+        
+    - name: Check documentation completeness
+      run: |
+        # Ensure all major sections are present in README
+        grep -q "## Installation" README.md || (echo "Missing Installation section in README" && exit 1)
+        grep -q "## Usage" README.md || (echo "Missing Usage section in README" && exit 1)
+        grep -q "## Troubleshooting" README.md || (echo "Missing Troubleshooting section in README" && exit 1)
+        
+        # Check that CONTRIBUTING.md has required sections
+        grep -q "## Getting Started" CONTRIBUTING.md || (echo "Missing Getting Started section in CONTRIBUTING" && exit 1)
+        grep -q "## Development Guidelines" CONTRIBUTING.md || (echo "Missing Development Guidelines section in CONTRIBUTING" && exit 1)
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Run security scan
+      run: |
+        # Check for potential security issues in shell scripts
+        find . -name "*.sh" -type f | while read -r script; do
+          echo "Scanning $script for security issues..."
+          
+          # Check for dangerous patterns
+          if grep -n "eval\|exec\|system\|rm -rf \$" "$script"; then
+            echo "WARNING: Potentially dangerous commands found in $script"
+          fi
+          
+          # Check for hardcoded credentials (basic check)
+          if grep -i "password\|secret\|key.*=" "$script" | grep -v "PASSWORD_PROMPT\|SECRET_FILE\|KEY_FILE"; then
+            echo "WARNING: Potential hardcoded credentials in $script"
+          fi
+        done
+        
+    - name: Check file permissions
+      run: |
+        # Ensure no files have overly permissive permissions
+        find . -type f -perm /o+w -exec echo "World-writable file: {}" \;
+
+  release-validation:
+    name: Release Validation
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Validate release readiness
+      run: |
+        chmod +x scripts/release.sh
+        ./scripts/release.sh validate
+        
+    - name: Test package creation
+      run: |
+        ./scripts/release.sh package --dry-run
+
+  compatibility-check:
+    name: Compatibility Check
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        shell: [bash, dash]
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install shell
+      run: |
+        if [[ "${{ matrix.shell }}" == "dash" ]]; then
+          sudo apt-get update
+          sudo apt-get install -y dash
+        fi
+        
+    - name: Test script compatibility
+      run: |
+        # Test main setup script with different shells
+        ${{ matrix.shell }} -n setup.sh
+        
+        # Test other shell scripts
+        find scripts/ -name "*.sh" -type f | while read -r script; do
+          echo "Testing $script with ${{ matrix.shell }}"
+          ${{ matrix.shell }} -n "$script" || echo "Warning: $script may not be compatible with ${{ matrix.shell }}"
+        done

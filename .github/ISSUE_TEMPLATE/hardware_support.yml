@@ -1,0 +1,148 @@
+name: Hardware Support Request
+description: Request support for new hardware or report hardware compatibility issues
+title: "[HARDWARE] "
+labels: ["hardware-support", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for requesting hardware support! This helps us expand compatibility to more devices.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission Checklist
+      description: Please check the following before submitting
+      options:
+        - label: I have checked the hardware compatibility list in the README
+          required: true
+        - label: I have searched existing issues for my hardware model
+          required: true
+        - label: I have tried the setup script on my hardware
+          required: false
+
+  - type: dropdown
+    id: request_type
+    attributes:
+      label: Request Type
+      description: What type of hardware support are you requesting?
+      options:
+        - New hardware model support
+        - Hardware compatibility issue
+        - Hardware feature not working
+        - Hardware optimization request
+    validations:
+      required: true
+
+  - type: input
+    id: laptop_model
+    attributes:
+      label: Laptop Model
+      description: Full model name and number
+      placeholder: "e.g., ASUS ROG Zephyrus G14 GA403UV"
+    validations:
+      required: true
+
+  - type: textarea
+    id: hardware_specs
+    attributes:
+      label: Hardware Specifications
+      description: Detailed hardware specifications
+      placeholder: |
+        - CPU: (e.g., AMD Ryzen 7 8845HS)
+        - iGPU: (e.g., AMD Radeon 780M)
+        - dGPU: (e.g., NVIDIA RTX 4060 Laptop)
+        - RAM: (e.g., 32GB DDR5)
+        - Storage: (e.g., 1TB NVMe SSD)
+        - Display: (e.g., 14" 2560x1600 165Hz)
+        - Other notable hardware features
+    validations:
+      required: true
+
+  - type: textarea
+    id: system_info
+    attributes:
+      label: System Information
+      description: Current system information
+      placeholder: |
+        - OS: (e.g., Arch Linux)
+        - Kernel: (run `uname -r`)
+        - Desktop Environment: (e.g., GNOME, KDE)
+        - Current GPU drivers: (run `lspci -k | grep -A 2 -E "(VGA|3D)"`)
+    validations:
+      required: true
+
+  - type: textarea
+    id: current_status
+    attributes:
+      label: Current Status
+      description: What happens when you run the setup script?
+      placeholder: |
+        - Does the script run successfully?
+        - What features work/don't work?
+        - Any error messages or issues encountered?
+        - Current workarounds you're using?
+
+  - type: textarea
+    id: testing_results
+    attributes:
+      label: Testing Results
+      description: Results from testing the setup script (if attempted)
+      placeholder: |
+        Please run these commands and paste the output:
+        - ./setup.sh --dry-run --verbose
+        - ./scripts/system-test.sh (if available)
+        - ./scripts/troubleshoot.sh --report (if available)
+      render: shell
+
+  - type: textarea
+    id: hardware_detection
+    attributes:
+      label: Hardware Detection
+      description: Output from hardware detection commands
+      placeholder: |
+        Please run these commands and paste the output:
+        - lspci | grep -E "(VGA|3D|Display)"
+        - lscpu | grep "Model name"
+        - cat /proc/cpuinfo | grep "model name" | head -1
+        - ls /sys/class/drm/
+        - cat /sys/class/dmi/id/product_name
+        - cat /sys/class/dmi/id/product_version
+      render: shell
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this hardware support to you?
+      options:
+        - Critical (can't use the setup without this)
+        - High (significantly impacts usability)
+        - Medium (would improve experience)
+        - Low (nice to have)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Testing Contribution
+      description: Can you help with testing and development?
+      options:
+        - label: I can test changes on my hardware
+        - label: I can provide detailed logs and debugging information
+        - label: I can help with documentation for this hardware
+        - label: I have development experience and can contribute code
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Information
+      description: Any other relevant information about your hardware or requirements
+      placeholder: |
+        - Specific features you need (gaming, CUDA, external displays, etc.)
+        - Any unique hardware characteristics
+        - Links to hardware specifications or reviews
+        - Other relevant context

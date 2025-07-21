@@ -1,0 +1,14 @@
+[Unit]
+Description=Power Management Setup for ASUS ROG Zephyrus G14
+After=multi-user.target
+Wants=tlp.service auto-cpufreq.service power-profiles-daemon.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/setup-power-management.sh
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

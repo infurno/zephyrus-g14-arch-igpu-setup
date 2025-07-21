@@ -1,0 +1,112 @@
+name: Question or Help
+description: Ask a question or get help with the setup
+title: "[QUESTION] "
+labels: ["question", "help-wanted"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for your question! Please provide as much detail as possible so we can help you effectively.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission Checklist
+      description: Please check the following before asking your question
+      options:
+        - label: I have read the README and documentation
+          required: true
+        - label: I have checked the troubleshooting guide
+          required: true
+        - label: I have searched existing issues and discussions
+          required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Question Category
+      description: What category does your question fall into?
+      options:
+        - Installation and Setup
+        - GPU Configuration and Switching
+        - Power Management
+        - ASUS Hardware Features
+        - Display Configuration
+        - Performance Optimization
+        - Troubleshooting
+        - Customization
+        - General Usage
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: What would you like to know?
+      placeholder: Please describe your question in detail
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context and Background
+      description: Provide context about your situation
+      placeholder: |
+        - What are you trying to achieve?
+        - What have you tried so far?
+        - What specific issues are you encountering?
+
+  - type: textarea
+    id: hardware
+    attributes:
+      label: Hardware Information
+      description: Your hardware configuration (if relevant)
+      placeholder: |
+        - Laptop model: (e.g., ASUS ROG Zephyrus G14 GA403WR)
+        - CPU: (e.g., AMD Ryzen 9 8945HS)
+        - GPU: (e.g., AMD Radeon 890M + NVIDIA RTX 5070 Ti)
+        - RAM: (e.g., 32GB DDR5)
+
+  - type: textarea
+    id: system
+    attributes:
+      label: System Information
+      description: Your system configuration (if relevant)
+      placeholder: |
+        - OS: (e.g., Arch Linux)
+        - Kernel: (run `uname -r`)
+        - Desktop Environment: (e.g., GNOME, KDE)
+        - Setup script version: (check VERSION file)
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs or Output
+      description: Any relevant logs, error messages, or command output
+      placeholder: |
+        If you have any error messages, logs, or command output that might be relevant,
+        please paste them here.
+      render: shell
+
+  - type: dropdown
+    id: urgency
+    attributes:
+      label: Urgency
+      description: How urgent is this question for you?
+      options:
+        - Low (general curiosity or future planning)
+        - Medium (would like to know soon)
+        - High (blocking current work or setup)
+        - Critical (system not working, need immediate help)
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Information
+      description: Any other information that might be helpful
+      placeholder: Screenshots, configuration files, or other relevant details

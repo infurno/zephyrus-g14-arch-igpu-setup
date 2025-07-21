@@ -1,0 +1,19 @@
+# ASUS Hardware Detection and Configuration Rules
+
+# ASUS ROG laptop detection
+SUBSYSTEM=="dmi", ATTR{sys_vendor}=="ASUSTeK COMPUTER INC.", ATTR{product_name}=="ROG Zephyrus*", TAG+="asus-rog"
+
+# ASUS keyboard backlight control
+SUBSYSTEM=="leds", KERNEL=="asus::kbd_backlight", MODE="0664", GROUP="input"
+
+# ASUS fan control
+SUBSYSTEM=="hwmon", ATTRS{name}=="asus", MODE="0664", GROUP="input"
+
+# ASUS battery charge control
+SUBSYSTEM=="power_supply", KERNEL=="BAT*", ATTR{manufacturer}=="ASUSTeK", MODE="0664", GROUP="input"
+
+# ASUS GPU MUX switch detection
+SUBSYSTEM=="pci", ATTR{vendor}=="0x1043", ATTR{device}=="0x*", TAG+="asus-gpu-mux"
+
+# Trigger ASUS hardware setup on device detection
+TAG=="asus-rog", RUN+="/usr/local/bin/setup-asus-tools.sh"

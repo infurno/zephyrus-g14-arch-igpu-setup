@@ -1,0 +1,11 @@
+[Unit]
+Description=NVIDIA GPU Resume Handler
+After=suspend.target hibernate.target hybrid-sleep.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/nvidia-suspend-handler.sh resume
+TimeoutStartSec=30
+
+[Install]
+WantedBy=suspend.target hibernate.target hybrid-sleep.target

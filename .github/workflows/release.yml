@@ -1,0 +1,181 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., 1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  validate-release:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Make release script executable
+      run: chmod +x scripts/release.sh
+      
+    - name: Validate release readiness
+      run: ./scripts/release.sh validate
+      
+    - name: Check version consistency
+      run: |
+        if [[ "${{ github.event_name }}" == "push" ]]; then
+          # Extract version from tag
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          FILE_VERSION=$(cat VERSION)
+          
+          if [[ "$TAG_VERSION" != "$FILE_VERSION" ]]; then
+            echo "Version mismatch: tag=$TAG_VERSION, file=$FILE_VERSION"
+            exit 1
+          fi
+        fi
+
+  create-release-package:
+    name: Create Release Package
+    runs-on: ubuntu-latest
+    needs: validate-release
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Make scripts executable
+      run: |
+        chmod +x scripts/release.sh
+        find scripts/ -name "*.sh" -type f -exec chmod +x {} \;
+        chmod +x setup.sh
+        
+    - name: Create release package
+      run: ./scripts/release.sh package
+      
+    - name: Upload package artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-package
+        path: dist/
+        retention-days: 30
+
+  test-package:
+    name: Test Release Package
+    runs-on: ubuntu-latest
+    needs: create-release-package
+    
+    steps:
+    - name: Download package artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: release-package
+        path: dist/
+        
+    - name: Test package integrity
+      run: |
+        cd dist/
+        
+        # Verify checksum
+        sha256sum -c *.sha256
+        
+        # Extract and test package
+        tar -xzf *.tar.gz
+        cd zephyrus-g14-arch-setup-v*/
+        
+        # Test dry run
+        chmod +x setup.sh
+        ./setup.sh --dry-run --verbose
+
+  create-github-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [validate-release, test-package]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    
+    permissions:
+      contents: write
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download package artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: release-package
+        path: dist/
+        
+    - name: Extract release notes
+      id: release_notes
+      run: |
+        VERSION="${GITHUB_REF#refs/tags/v}"
+        
+        # Extract release notes from CHANGELOG.md
+        awk "/## \[$VERSION\]/{flag=1; next} /## \[/{flag=0} flag" CHANGELOG.md > release_notes.md
+        
+        # If no specific release notes found, use a default message
+        if [[ ! -s release_notes.md ]]; then
+          echo "Release $VERSION" > release_notes.md
+          echo "" >> release_notes.md
+          echo "See CHANGELOG.md for detailed changes." >> release_notes.md
+        fi
+        
+        echo "notes_file=release_notes.md" >> $GITHUB_OUTPUT
+        
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        body_path: ${{ steps.release_notes.outputs.notes_file }}
+        files: |
+          dist/*.tar.gz
+          dist/*.sha256
+        draft: false
+        prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  notify-release:
+    name: Notify Release
+    runs-on: ubuntu-latest
+    needs: create-github-release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Get release info
+      id: release_info
+      run: |
+        VERSION="${GITHUB_REF#refs/tags/v}"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "release_url=https://github.com/${{ github.repository }}/releases/tag/v$VERSION" >> $GITHUB_OUTPUT
+        
+    - name: Create release summary
+      run: |
+        cat << EOF >> $GITHUB_STEP_SUMMARY
+        # 🎉 Release ${{ steps.release_info.outputs.version }} Published
+        
+        The release has been successfully created and is now available:
+        
+        - **Release URL**: ${{ steps.release_info.outputs.release_url }}
+        - **Package**: zephyrus-g14-arch-setup-v${{ steps.release_info.outputs.version }}.tar.gz
+        - **Installation**: Download and run \`./setup.sh\`
+        
+        ## Quick Start
+        
+        \`\`\`bash
+        # Download and extract
+        wget https://github.com/${{ github.repository }}/releases/download/v${{ steps.release_info.outputs.version }}/zephyrus-g14-arch-setup-v${{ steps.release_info.outputs.version }}.tar.gz
+        tar -xzf zephyrus-g14-arch-setup-v${{ steps.release_info.outputs.version }}.tar.gz
+        cd zephyrus-g14-arch-setup-v${{ steps.release_info.outputs.version }}/
+        
+        # Run setup
+        ./setup.sh
+        \`\`\`
+        EOF

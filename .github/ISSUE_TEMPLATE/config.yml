@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Documentation
+    url: https://github.com/username/zephyrus-g14-arch-igpu-setup/blob/main/README.md
+    about: Read the complete setup and usage documentation
+  - name: 🔧 Troubleshooting Guide
+    url: https://github.com/username/zephyrus-g14-arch-igpu-setup/blob/main/docs/TROUBLESHOOTING.md
+    about: Check the troubleshooting guide for common issues and solutions
+  - name: 🎛️ Customization Guide
+    url: https://github.com/username/zephyrus-g14-arch-igpu-setup/blob/main/docs/CUSTOMIZATION.md
+    about: Learn how to customize and configure the setup for your needs
+  - name: 💬 GitHub Discussions
+    url: https://github.com/username/zephyrus-g14-arch-igpu-setup/discussions
+    about: Join community discussions, share tips, and ask general questions

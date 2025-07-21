@@ -1,0 +1,13 @@
+[Unit]
+Description=ASUS Hardware Configuration Service
+After=multi-user.target
+Wants=asusd.service supergfxd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/setup-asus-tools.sh
+RemainAfterExit=yes
+User=root
+
+[Install]
+WantedBy=multi-user.target

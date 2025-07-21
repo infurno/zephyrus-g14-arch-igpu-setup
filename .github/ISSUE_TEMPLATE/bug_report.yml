@@ -1,0 +1,131 @@
+name: Bug Report
+description: Report a bug or issue with the setup
+title: "[BUG] "
+labels: ["bug", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug! Please fill out the information below to help us diagnose and fix the issue.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission Checklist
+      description: Please check the following before submitting your bug report
+      options:
+        - label: I have searched existing issues to ensure this bug hasn't been reported already
+          required: true
+        - label: I have read the troubleshooting documentation
+          required: true
+        - label: I have tried the basic troubleshooting steps
+          required: false
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is
+      placeholder: Describe what happened and what you expected to happen
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Detailed steps to reproduce the behavior
+      placeholder: |
+        1. Run command '...'
+        2. See error '...'
+        3. Expected '...' but got '...'
+    validations:
+      required: true
+
+  - type: dropdown
+    id: hardware
+    attributes:
+      label: Hardware Model
+      description: What ASUS laptop model are you using?
+      options:
+        - ASUS ROG Zephyrus G14 (GA403WR)
+        - ASUS ROG Zephyrus G14 (GA403UV)
+        - ASUS ROG Zephyrus G14 (GA402RJ/RK)
+        - ASUS ROG Zephyrus G14 (GA401)
+        - Other ASUS ROG model
+        - Different brand/model
+    validations:
+      required: true
+
+  - type: input
+    id: cpu
+    attributes:
+      label: CPU Model
+      description: What CPU does your laptop have?
+      placeholder: "e.g., AMD Ryzen 9 8945HS"
+    validations:
+      required: true
+
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU Configuration
+      description: What GPU(s) does your laptop have?
+      placeholder: "e.g., AMD Radeon 890M + NVIDIA RTX 5070 Ti Laptop"
+    validations:
+      required: true
+
+  - type: textarea
+    id: system_info
+    attributes:
+      label: System Information
+      description: Please provide system information
+      placeholder: |
+        - OS: Arch Linux
+        - Kernel version: (run `uname -r`)
+        - Desktop Environment: (e.g., GNOME, KDE, XFCE)
+        - Display Manager: (e.g., GDM, SDDM, LightDM)
+        - Setup script version: (check VERSION file)
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs
+      description: Please include relevant log output
+      placeholder: |
+        Paste relevant logs here. You can find logs in:
+        - Setup logs: ./logs/setup_*.log
+        - System logs: journalctl -u asusd -u supergfxd -u tlp
+        - Troubleshooting logs: ./scripts/troubleshoot.sh --report
+      render: shell
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration Details
+      description: Any relevant configuration details or customizations
+      placeholder: Describe any custom configurations or modifications you've made
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Bug Severity
+      description: How severe is this bug?
+      options:
+        - Critical (system unusable, data loss)
+        - High (major functionality broken)
+        - Medium (some functionality affected)
+        - Low (minor issue, workaround available)
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context about the problem here
+      placeholder: Screenshots, error messages, or other relevant information
