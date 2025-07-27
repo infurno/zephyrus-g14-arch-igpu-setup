@@ -144,7 +144,7 @@ This document summarizes the comprehensive error handling and recovery mechanism
 ### 1. Enhanced Package Installation
 ```bash
 # Before
-sudo pacman -S package-name
+sudo dnf install package-name
 
 # After
 install_package_with_recovery "package-name" 3  # 3 retries

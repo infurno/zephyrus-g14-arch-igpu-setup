@@ -40,7 +40,7 @@ create_error_patterns_file() {
         "signature_error": {
             "pattern": "signature.*invalid|key.*unknown|gpg.*error",
             "description": "Package signature validation failed",
-            "solution": "Update keyring: sudo pacman -S archlinux-keyring",
+            "solution": "Update GPG keys: sudo dnf install -y fedora-gpg-keys",
             "recovery_function": "recover_package_installation"
         },
         "dependency_conflict": {
@@ -310,7 +310,7 @@ generate_error_report() {
             "/etc/X11/xorg.conf.d/10-hybrid.conf"
             "/etc/tlp.conf"
             "/etc/auto-cpufreq.conf"
-            "/etc/pacman.conf"
+            "/etc/dnf/dnf.conf"
         )
         
         for config in "${config_files[@]}"; do
@@ -324,9 +324,9 @@ generate_error_report() {
         
         echo "Package Information:"
         echo "-------------------"
-        local packages=("nvidia" "nvidia-utils" "mesa" "tlp" "auto-cpufreq" "asusctl" "supergfxctl")
+        local packages=("akmod-nvidia" "xorg-x11-drv-nvidia-cuda" "mesa-dri-drivers" "tlp" "auto-cpufreq" "asusctl" "supergfxctl")
         for package in "${packages[@]}"; do
-            local version=$(pacman -Q "$package" 2>/dev/null || echo "not installed")
+            local version=$(dnf list installed "$package" 2>/dev/null | tail -1 | awk '{print $2}' || echo "not installed")
             echo "$package: $version"
         done
         echo ""

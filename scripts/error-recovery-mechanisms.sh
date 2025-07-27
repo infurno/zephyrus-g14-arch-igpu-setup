@@ -18,7 +18,17 @@ declare -A RECOVERY_MECHANISMS=(
     ["service_start_failure"]="recover_service_start_failure"
     ["gpu_driver_failure"]="recover_gpu_driver_failure"
     ["xorg_config_failure"]="recover_xorg_config_failure"
-    ["power_management_failure"]="recover_power_management_failure"
+    ["p    # Step 3: Remove orphaned packages
+    ((recovery_steps++))
+    log_info "Step 3: Removing orphaned packages"
+    local orphans=$(dnf list extras 2>/dev/null | awk 'NR>1 {print $1}' | head -10 || echo "")
+    if [[ -n "$orphans" ]]; then
+        if sudo dnf remove -y $orphans; then
+            log_success "Orphaned packages removed"
+            ((successful_steps++))
+        else
+            log_warn "Failed to remove some orphaned packages"
+        fi_failure"]="recover_power_management_failure"
     ["asus_tools_failure"]="recover_asus_tools_failure"
     ["network_failure"]="recover_network_failure"
     ["disk_space_failure"]="recover_disk_space_failure"
@@ -79,25 +89,25 @@ recover_package_install_failure() {
         log_warn "Failed to clear package cache"
     fi
     
-    # Step 3: Update keyring
+    # Step 3: Update GPG keys
     ((recovery_steps++))
-    log_info "Step 3: Updating keyring..."
-    if sudo pacman -S --noconfirm archlinux-keyring; then
-        log_success "Keyring updated"
+    log_info "Step 3: Updating GPG keys..."
+    if sudo dnf install -y fedora-gpg-keys; then
+        log_success "GPG keys updated"
         ((successful_steps++))
     else
-        log_warn "Failed to update keyring"
+        log_warn "Failed to update GPG keys"
     fi
     
     # Step 4: Fix broken packages
     ((recovery_steps++))
     log_info "Step 4: Checking for broken packages..."
-    if sudo pacman -Dk; then
+    if sudo dnf check; then
         log_success "No broken packages found"
         ((successful_steps++))
     else
         log_warn "Broken packages detected, attempting repair..."
-        if sudo pacman -S --noconfirm $(pacman -Qkq 2>/dev/null | head -10); then
+        if sudo dnf reinstall -y $(dnf list installed | grep -E '\.rpm' | head -10 | awk '{print $1}' | cut -d. -f1); then
             log_success "Package repair attempted"
             ((successful_steps++))
         else
@@ -109,7 +119,7 @@ recover_package_install_failure() {
     if [[ -n "$package" && "$package" != "unknown" ]]; then
         ((recovery_steps++))
         log_info "Step 5: Retrying package installation: $package"
-        if sudo pacman -S --noconfirm "$package"; then
+        if sudo dnf install -y "$package"; then
             log_success "Package installation successful after recovery"
             ((successful_steps++))
         else
@@ -670,9 +680,9 @@ recover_disk_space_failure() {
     # Step 1: Clean package cache
     ((recovery_steps++))
     log_info "Step 1: Cleaning package cache"
-    local cache_before=$(du -sh /var/cache/pacman/pkg 2>/dev/null | cut -f1 || echo "unknown")
-    if sudo pacman -Scc --noconfirm; then
-        local cache_after=$(du -sh /var/cache/pacman/pkg 2>/dev/null | cut -f1 || echo "unknown")
+    local cache_before=$(du -sh /var/cache/dnf 2>/dev/null | cut -f1 || echo "unknown")
+    if sudo dnf clean all; then
+        local cache_after=$(du -sh /var/cache/dnf 2>/dev/null | cut -f1 || echo "unknown")
         log_success "Package cache cleaned (was: $cache_before, now: $cache_after)"
         ((successful_steps++))
     else
@@ -692,9 +702,9 @@ recover_disk_space_failure() {
     # Step 3: Remove orphaned packages
     ((recovery_steps++))
     log_info "Step 3: Removing orphaned packages"
-    local orphans=$(pacman -Qtdq 2>/dev/null || echo "")
+    local orphans=$(dnf repoquery --unneeded --extras --quiet 2>/dev/null || echo "")
     if [[ -n "$orphans" ]]; then
-        if sudo pacman -Rns --noconfirm $orphans; then
+        if sudo dnf remove -y $orphans; then
             log_success "Orphaned packages removed"
             ((successful_steps++))
         else

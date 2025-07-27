@@ -172,7 +172,7 @@ test_power_packages_installed() {
     local missing_packages=()
     
     for package in "${required_packages[@]}"; do
-        if ! pacman -Qi "$package" &>/dev/null; then
+        if ! dnf list installed "$package" &>/dev/null; then
             missing_packages+=("$package")
         fi
     done

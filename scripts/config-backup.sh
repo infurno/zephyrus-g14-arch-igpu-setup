@@ -89,8 +89,8 @@ declare -ra CONFIG_MAPPINGS=(
     # GRUB configuration (for kernel parameters)
     "/etc/default/grub:/etc/default/grub:GRUB bootloader configuration"
     
-    # Pacman configuration (for ASUS repository)
-    "/etc/pacman.conf:/etc/pacman.conf:Pacman package manager configuration"
+    # DNF configuration (for COPR repositories)
+    "/etc/dnf/dnf.conf:/etc/dnf/dnf.conf:DNF package manager configuration"
 )
 
 # User data protection patterns

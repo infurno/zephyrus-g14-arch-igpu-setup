@@ -178,7 +178,7 @@ validate_dependencies() {
         return 0
     else
         log_error "Missing dependencies: ${missing_deps[*]}"
-        log_info "Install with: sudo pacman -S ${missing_deps[*]}"
+        log_info "Install with: sudo dnf install -y ${missing_deps[*]}"
         return 1
     fi
 }

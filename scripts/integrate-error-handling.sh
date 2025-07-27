@@ -413,8 +413,8 @@ enhance_error_handling_in_script() {
     }
     
     # Add error handling to package installations
-    /pacman -S/ && !/install_package_with_recovery/ {
-        gsub(/pacman -S/, "install_package_with_recovery")
+    /(dnf install|pacman -S)/ && !/install_package_with_recovery/ {
+        gsub(/(dnf install|pacman -S)/, "install_package_with_recovery")
         print $0
         next
     }
@@ -471,7 +471,7 @@ validate_error_handling() {
     fi
     
     # Check for recovery mechanisms
-    if grep -q "pacman -S" "$script_file" && ! grep -q "install_package_with_recovery\|install_package_with_dependencies" "$script_file"; then
+    if grep -q "dnf install\|pacman -S" "$script_file" && ! grep -q "install_package_with_recovery\|install_package_with_dependencies" "$script_file"; then
         validation_errors+=("Package installations without recovery mechanisms")
     fi
     

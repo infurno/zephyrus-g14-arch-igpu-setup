@@ -381,7 +381,7 @@ auto_fix_common_issues() {
     
     # Fix 6: Clear package cache if corrupted
     print_info "Checking package cache integrity..."
-    if ! pacman -Q >/dev/null 2>&1; then
+    if ! dnf list installed >/dev/null 2>&1; then
         print_info "Package database appears corrupted, attempting recovery..."
         if recover_package_installation; then
             print_solution "Package system recovered"

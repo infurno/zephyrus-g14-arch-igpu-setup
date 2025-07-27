@@ -65,7 +65,7 @@ validate_system_prerequisites() {
     fi
     
     # Check package manager functionality
-    if ! pacman -Q &>/dev/null; then
+    if ! dnf list installed &>/dev/null; then
         validation_errors+=("Package manager not functioning")
     fi
     
@@ -99,14 +99,14 @@ install_package_with_dependencies() {
     log_info "Installing package with dependency resolution: $package"
     
     # Check if package exists in repositories
-    if ! pacman -Si "$package" &>/dev/null; then
+    if ! dnf info "$package" &>/dev/null; then
         log_error "Package not found in repositories: $package"
         return 1
     fi
     
     # Get package dependencies
-    local dependencies=$(pacman -Si "$package" | grep "Depends On" | cut -d: -f2 | tr -d ' ')
-    if [[ -n "$dependencies" && "$dependencies" != "None" ]]; then
+    local dependencies=$(dnf repoquery --requires "$package" 2>/dev/null | head -5 | tr '\n' ' ')
+    if [[ -n "$dependencies" ]]; then
         log_debug "Package dependencies: $dependencies"
     fi
     
@@ -114,7 +114,7 @@ install_package_with_dependencies() {
     local retry_count=0
     while [[ $retry_count -lt $max_retries ]]; do
         local error_output
-        if error_output=$(sudo pacman -S --noconfirm "$package" 2>&1); then
+        if error_output=$(sudo dnf install -y "$package" 2>&1); then
             log_success "Successfully installed package: $package"
             return 0
         else
@@ -123,15 +123,15 @@ install_package_with_dependencies() {
             log_debug "Error output: $error_output"
             
             # Analyze error and attempt recovery
-            if echo "$error_output" | grep -q "signature"; then
-                log_info "Signature error detected, updating keyring..."
-                sudo pacman -Sy archlinux-keyring --noconfirm || true
+            if echo "$error_output" | grep -q "signature\|gpg"; then
+                log_info "Signature error detected, updating GPG keys..."
+                sudo dnf install -y fedora-gpg-keys || true
             elif echo "$error_output" | grep -q "conflict"; then
                 log_info "Package conflict detected, attempting resolution..."
                 resolve_package_conflicts "$package" "$error_output"
-            elif echo "$error_output" | grep -q "database"; then
+            elif echo "$error_output" | grep -q "database\|metadata"; then
                 log_info "Database error detected, refreshing package database..."
-                sudo pacman -Syy || true
+                sudo dnf makecache --refresh || true
             fi
             
             if [[ $retry_count -lt $max_retries ]]; then
@@ -158,9 +158,9 @@ resolve_package_conflicts() {
         log_info "Found conflicting packages: $conflicting_packages"
         
         for conflict in $conflicting_packages; do
-            if pacman -Qi "$conflict" &>/dev/null; then
+            if dnf list installed "$conflict" &>/dev/null; then
                 log_info "Removing conflicting package: $conflict"
-                sudo pacman -Rns --noconfirm "$conflict" || {
+                sudo dnf remove -y "$conflict" || {
                     log_warn "Failed to remove conflicting package: $conflict"
                 }
             fi
@@ -386,7 +386,7 @@ save_system_state() {
     log_debug "Saving system state to: $state_dir"
     
     # Save package list
-    pacman -Q > "$state_dir/packages.txt" 2>/dev/null || true
+    dnf list installed > "$state_dir/packages.txt" 2>/dev/null || true
     
     # Save service states
     systemctl list-unit-files --state=enabled > "$state_dir/enabled_services.txt" 2>/dev/null || true
@@ -397,10 +397,10 @@ save_system_state() {
     
     # Save system configuration files
     local config_files=(
-        "/etc/pacman.conf"
-        "/etc/mkinitcpio.conf"
+        "/etc/dnf/dnf.conf"
+        "/etc/dracut.conf.d"
         "/etc/default/grub"
-        "/boot/grub/grub.cfg"
+        "/boot/grub2/grub.cfg"
     )
     
     for config_file in "${config_files[@]}"; do
@@ -470,7 +470,7 @@ repair_package_database() {
     log_info "Repairing package database..."
     
     # Update package database
-    if sudo pacman -Sy; then
+    if sudo dnf makecache --refresh; then
         log_debug "Package database updated"
     else
         log_warn "Failed to update package database"
@@ -478,7 +478,7 @@ repair_package_database() {
     fi
     
     # Check database integrity
-    if sudo pacman -Dk; then
+    if sudo dnf check; then
         log_debug "Package database integrity check passed"
     else
         log_warn "Package database integrity issues detected"

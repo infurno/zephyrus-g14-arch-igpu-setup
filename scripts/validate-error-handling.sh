@@ -247,7 +247,7 @@ validate_script_integration() {
         fi
         
         # Check for recovery mechanisms in package operations
-        if grep -q "pacman -S" "$full_path" && ! grep -q "install_package_with_recovery\|install_package_with_dependencies" "$full_path"; then
+        if grep -q "dnf install\|pacman -S" "$full_path" && ! grep -q "install_package_with_recovery\|install_package_with_dependencies" "$full_path"; then
             script_issues+=("unprotected_package_operations")
         fi
         

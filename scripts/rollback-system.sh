@@ -98,8 +98,8 @@ backup_configurations() {
     
     # Individual configuration files
     local config_files=(
-        "/etc/pacman.conf"
-        "/etc/mkinitcpio.conf"
+        "/etc/dnf/dnf.conf"
+        "/etc/dracut.conf.d"
         "/etc/tlp.conf"
         "/etc/auto-cpufreq.conf"
         "/etc/fstab"
@@ -137,30 +137,30 @@ backup_packages() {
     log_debug "Backing up package information"
     
     # Installed packages list
-    pacman -Q > "${backup_dir}/installed_packages.txt" 2>/dev/null || {
+    dnf list installed > "${backup_dir}/installed_packages.txt" 2>/dev/null || {
         log_warn "Failed to backup installed packages list"
     }
     
-    # Explicitly installed packages
-    pacman -Qe > "${backup_dir}/explicit_packages.txt" 2>/dev/null || {
+    # Explicitly installed packages (user-installed)
+    dnf history userinstalled > "${backup_dir}/explicit_packages.txt" 2>/dev/null || {
         log_warn "Failed to backup explicit packages list"
     }
     
-    # Foreign packages (AUR)
-    pacman -Qm > "${backup_dir}/foreign_packages.txt" 2>/dev/null || {
+    # Third-party packages (COPR, external repos)
+    dnf repoquery --installed --qf="%{name} %{reponame}" | grep -v -E "(fedora|updates)" > "${backup_dir}/foreign_packages.txt" 2>/dev/null || {
         log_warn "Failed to backup foreign packages list"
     }
     
     # Package database
-    if [[ -d "/var/lib/pacman/local" ]]; then
-        sudo mkdir -p "${backup_dir}/pacman"
-        sudo cp -r "/var/lib/pacman/local" "${backup_dir}/pacman/" 2>/dev/null || {
+    if [[ -d "/var/lib/rpm" ]]; then
+        sudo mkdir -p "${backup_dir}/rpm"
+        sudo cp -r "/var/lib/rpm" "${backup_dir}/rpm/" 2>/dev/null || {
             log_warn "Failed to backup package database"
         }
     fi
     
-    # Pacman cache info
-    ls -la /var/cache/pacman/pkg/ > "${backup_dir}/package_cache.txt" 2>/dev/null || true
+    # DNF cache info
+    ls -la /var/cache/dnf/ > "${backup_dir}/package_cache.txt" 2>/dev/null || true
     
     log_debug "Package information backup completed"
 }
@@ -209,7 +209,7 @@ backup_logs() {
     
     # System logs
     local log_files=(
-        "/var/log/pacman.log"
+        "/var/log/dnf.log"
         "/var/log/Xorg.0.log"
         "/var/log/boot.log"
     )
@@ -249,7 +249,7 @@ create_rollback_metadata() {
     local kernel_version=$(uname -r)
     local hostname=$(hostname)
     local user=$(whoami)
-    local package_count=$(pacman -Q | wc -l)
+    local package_count=$(dnf list installed | wc -l)
     local disk_usage=$(df -h / | tail -1 | awk '{print $5}')
     
     # Create metadata JSON
@@ -483,8 +483,8 @@ restore_configurations() {
     
     # Restore individual files
     local restore_files=(
-        "/etc/pacman.conf"
-        "/etc/mkinitcpio.conf"
+        "/etc/dnf/dnf.conf"
+        "/etc/dracut.conf.d"
         "/etc/tlp.conf"
         "/etc/auto-cpufreq.conf"
         "/etc/fstab"

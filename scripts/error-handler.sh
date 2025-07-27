@@ -169,7 +169,7 @@ create_rollback_point() {
     "system_info": {
         "kernel": "$(uname -r)",
         "hostname": "$(hostname)",
-        "packages": "$(pacman -Q | wc -l)"
+        "packages": "$(dnf list installed | wc -l)"
     }
 }
 EOF
@@ -191,8 +191,8 @@ backup_system_configs() {
         "/etc/X11/xorg.conf.d"
         "/etc/tlp.conf"
         "/etc/auto-cpufreq.conf"
-        "/etc/pacman.conf"
-        "/etc/mkinitcpio.conf"
+        "/etc/dnf/dnf.conf"
+        "/etc/dracut.conf.d"
         "/etc/default/grub"
         "/etc/systemd/system"
         "/etc/udev/rules.d"
@@ -211,7 +211,7 @@ backup_system_configs() {
     done
     
     # Backup package list
-    pacman -Q > "${backup_dir}/package_list.txt" 2>/dev/null || true
+    dnf list installed > "${backup_dir}/package_list.txt" 2>/dev/null || true
     
     # Backup service states
     systemctl list-unit-files --state=enabled > "${backup_dir}/enabled_services.txt" 2>/dev/null || true
@@ -305,8 +305,8 @@ restore_system_configs() {
     local config_files=(
         "/etc/tlp.conf"
         "/etc/auto-cpufreq.conf"
-        "/etc/pacman.conf"
-        "/etc/mkinitcpio.conf"
+        "/etc/dnf/dnf.conf"
+        "/etc/dracut.conf.d"
         "/etc/default/grub"
     )
     
@@ -371,7 +371,7 @@ recover_package_installation() {
     log_info "Attempting package installation recovery..."
     
     # Update package database
-    if sudo pacman -Sy; then
+    if sudo dnf makecache; then
         log_success "Package database updated"
     else
         log_error "Failed to update package database"
@@ -379,13 +379,13 @@ recover_package_installation() {
     fi
     
     # Clear package cache if corrupted
-    if sudo pacman -Scc --noconfirm; then
+    if sudo dnf clean all; then
         log_success "Package cache cleared"
     fi
     
     # Try to fix broken packages
-    if sudo pacman -S --noconfirm archlinux-keyring; then
-        log_success "Keyring updated"
+    if sudo dnf install -y fedora-gpg-keys; then
+        log_success "GPG keys updated"
     fi
     
     return 0
