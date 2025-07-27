@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# ASUS ROG Zephyrus G14 Arch Linux Setup Script
+# ASUS ROG Zephyrus G14 Fedora 42 Setup Script
 # Optimized for hybrid GPU configuration (AMD iGPU + NVIDIA dGPU)
 
 set -euo pipefail
@@ -116,14 +116,14 @@ install_package_with_recovery() {
     fi
     
     # Check if package is already installed
-    if pacman -Qi "$package" &>/dev/null; then
+    if dnf list installed "$package" &>/dev/null; then
         log_debug "Package $package is already installed"
         return 0
     fi
     
     while [[ $retry_count -lt $max_retries ]]; do
         local error_output
-        if error_output=$(sudo pacman -S --noconfirm "$package" 2>&1); then
+        if error_output=$(sudo dnf install -y "$package" 2>&1); then
             log_success "Successfully installed: $package"
             return 0
         else
@@ -137,7 +137,7 @@ install_package_with_recovery() {
                 log_info "Retrying in 5 seconds..."
                 sleep 5
                 # Update package database before retry
-                sudo pacman -Sy || log_warn "Failed to update package database"
+                sudo dnf makecache || log_warn "Failed to update package cache"
             fi
         fi
     done
@@ -277,11 +277,20 @@ confirm_action() {
 }
 
 # System validation functions
-check_arch_linux() {
-    if [[ ! -f /etc/arch-release ]]; then
-        error_exit "This script is designed for Arch Linux only."
+check_fedora() {
+    if [[ ! -f /etc/fedora-release ]]; then
+        error_exit "This script is designed for Fedora 42 only."
     fi
-    log_success "Arch Linux detected"
+    
+    # Check Fedora version
+    local fedora_version=$(grep -oP 'Fedora release \K\d+' /etc/fedora-release)
+    if [[ "$fedora_version" -lt 42 ]]; then
+        log_warn "This script is optimized for Fedora 42, you are running Fedora $fedora_version"
+        if ! confirm_action "Continue anyway?"; then
+            exit 0
+        fi
+    fi
+    log_success "Fedora $fedora_version detected"
 }
 
 check_root_privileges() {
@@ -299,7 +308,7 @@ check_root_privileges() {
 }
 
 check_internet_connection() {
-    if ! ping -c 1 archlinux.org &> /dev/null; then
+    if ! ping -c 1 fedoraproject.org &> /dev/null; then
         error_exit "Internet connection required but not available"
     fi
     log_success "Internet connection verified"
@@ -348,7 +357,7 @@ show_banner() {
     cat << 'EOF'
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                    ASUS ROG Zephyrus G14 Setup Script                       ║
-║                     Arch Linux Hybrid GPU Configuration                     ║
+║                     Fedora 42 Hybrid GPU Configuration                      ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
 ║  This script will configure your system for optimal battery life using      ║
 ║  the AMD iGPU while maintaining NVIDIA dGPU access for gaming and CUDA.     ║
@@ -391,37 +400,35 @@ EOF
 
 # Package arrays for different component categories
 declare -ra CORE_PACKAGES=(
-    "linux-headers"
-    "mesa"
-    "vulkan-radeon"
-    "xf86-video-amdgpu"
-    "mesa-utils"
+    "kernel-headers"
+    "kernel-devel"
+    "mesa-dri-drivers"
+    "mesa-vulkan-drivers"
+    "mesa-va-drivers"
+    "xorg-x11-drv-amdgpu"
+    "mesa-libGL"
     "vulkan-tools"
-    "base-devel"
+    "@development-tools"
     "git"
     "wget"
     "curl"
 )
 
 declare -ra NVIDIA_PACKAGES=(
-    "nvidia"
-    "nvidia-utils"
-    "lib32-nvidia-utils"
-    "nvidia-prime"
+    "akmod-nvidia"
+    "xorg-x11-drv-nvidia-cuda"
     "nvidia-settings"
-    "opencl-nvidia"
-    "lib32-opencl-nvidia"
+    "cuda-drivers"
+    "nvidia-container-toolkit"
 )
 
 declare -ra POWER_PACKAGES=(
     "tlp"
     "tlp-rdw"
-    "auto-cpufreq"
     "powertop"
-    "acpi_call"
-    "bbswitch"
     "thermald"
-    "cpupower"
+    "kernel-tools"
+    "python3-pip"
 )
 
 declare -ra ASUS_PACKAGES=(
@@ -429,7 +436,6 @@ declare -ra ASUS_PACKAGES=(
     "supergfxctl"
     "rog-control-center"
     "power-profiles-daemon"
-    "switcheroo-control"
 )
 
 # Package installation functions with enhanced error handling and retry logic
@@ -441,37 +447,37 @@ install_package() {
     install_package_with_recovery "$package" "$max_retries"
 }
 
-install_aur_package() {
+install_copr_package() {
     local package="$1"
     local max_retries="${2:-3}"
     local retry_count=0
     
-    log_debug "Installing AUR package: $package"
+    log_debug "Installing COPR package: $package"
     
     if [[ "$DRY_RUN" == true ]]; then
-        log_info "[DRY RUN] Would install AUR package: $package"
+        log_info "[DRY RUN] Would install COPR package: $package"
         return 0
     fi
     
-    # Check if yay is installed, install if not
-    if ! command -v yay &>/dev/null; then
-        log_info "Installing yay AUR helper..."
-        install_yay_helper || return 1
+    # Check if copr plugin is installed, install if not
+    if ! dnf list installed dnf-plugins-core &>/dev/null; then
+        log_info "Installing dnf-plugins-core for COPR support..."
+        sudo dnf install -y dnf-plugins-core || return 1
     fi
     
     # Check if package is already installed
-    if pacman -Qi "$package" &>/dev/null; then
-        log_debug "AUR package $package is already installed"
+    if dnf list installed "$package" &>/dev/null; then
+        log_debug "COPR package $package is already installed"
         return 0
     fi
     
     while [[ $retry_count -lt $max_retries ]]; do
-        if yay -S --noconfirm "$package"; then
-            log_success "Successfully installed AUR package: $package"
+        if sudo dnf install -y "$package"; then
+            log_success "Successfully installed COPR package: $package"
             return 0
         else
             retry_count=$((retry_count + 1))
-            log_warn "Failed to install AUR package $package (attempt $retry_count/$max_retries)"
+            log_warn "Failed to install COPR package $package (attempt $retry_count/$max_retries)"
             
             if [[ $retry_count -lt $max_retries ]]; then
                 log_info "Retrying in 5 seconds..."
@@ -480,34 +486,65 @@ install_aur_package() {
         fi
     done
     
-    log_error "Failed to install AUR package $package after $max_retries attempts"
+    log_error "Failed to install COPR package $package after $max_retries attempts"
     return 1
 }
 
-install_yay_helper() {
-    log_info "Installing yay AUR helper..."
+install_copr_helper() {
+    log_info "Enabling COPR repository for ASUS tools..."
     
     if [[ "$DRY_RUN" == true ]]; then
-        log_info "[DRY RUN] Would install yay AUR helper"
+        log_info "[DRY RUN] Would enable COPR for ASUS tools"
         return 0
     fi
     
-    local temp_dir="/tmp/yay-install"
+    # Enable the ASUS Linux COPR repository
+    if sudo dnf copr enable -y lukenukem/asus-linux; then
+        log_success "ASUS Linux COPR repository enabled successfully"
+        return 0
+    else
+        log_error "Failed to enable ASUS Linux COPR repository"
+        return 1
+    fi
+}
+
+install_auto_cpufreq() {
+    log_info "Installing auto-cpufreq..."
     
-    # Clean up any existing installation
-    rm -rf "$temp_dir"
+    if [[ "$DRY_RUN" == true ]]; then
+        log_info "[DRY RUN] Would install auto-cpufreq"
+        return 0
+    fi
     
-    # Clone and build yay
-    git clone https://aur.archlinux.org/yay.git "$temp_dir" || return 1
-    cd "$temp_dir" || return 1
-    makepkg -si --noconfirm || return 1
-    cd - || return 1
+    # Check if auto-cpufreq is already installed
+    if command -v auto-cpufreq &>/dev/null; then
+        log_debug "auto-cpufreq is already installed"
+        return 0
+    fi
     
-    # Clean up
-    rm -rf "$temp_dir"
+    # Try to install from repository first
+    if sudo dnf install -y auto-cpufreq 2>/dev/null; then
+        log_success "auto-cpufreq installed from repository"
+        return 0
+    fi
     
-    log_success "yay AUR helper installed successfully"
-    return 0
+    # Fall back to pip installation
+    log_info "Repository installation failed, trying pip installation..."
+    
+    # Ensure pip is available
+    if ! command -v pip3 &>/dev/null; then
+        log_error "pip3 not available, cannot install auto-cpufreq"
+        return 1
+    fi
+    
+    # Install auto-cpufreq via pip
+    if sudo pip3 install auto-cpufreq; then
+        log_success "auto-cpufreq installed via pip"
+        return 0
+    else
+        log_error "Failed to install auto-cpufreq via pip"
+        return 1
+    fi
 }
 
 install_package_group() {
@@ -532,24 +569,24 @@ install_package_group() {
     fi
 }
 
-install_aur_package_group() {
+install_copr_package_group() {
     local group_name="$1"
     local -n package_array=$2
     local failed_packages=()
     
-    log_info "Installing $group_name AUR packages..."
+    log_info "Installing $group_name COPR packages..."
     
     for package in "${package_array[@]}"; do
-        if ! install_aur_package "$package"; then
+        if ! install_copr_package "$package"; then
             failed_packages+=("$package")
         fi
     done
     
     if [[ ${#failed_packages[@]} -gt 0 ]]; then
-        log_warn "Failed to install some $group_name AUR packages: ${failed_packages[*]}"
+        log_warn "Failed to install some $group_name COPR packages: ${failed_packages[*]}"
         return 1
     else
-        log_success "All $group_name AUR packages installed successfully"
+        log_success "All $group_name COPR packages installed successfully"
         return 0
     fi
 }
@@ -561,30 +598,35 @@ detect_package_conflicts() {
     local conflicts_found=false
     
     # Check for conflicting GPU drivers
-    if pacman -Qi xf86-video-nouveau &>/dev/null; then
-        log_warn "Conflicting package detected: xf86-video-nouveau (conflicts with NVIDIA proprietary driver)"
-        if confirm_action "Remove xf86-video-nouveau?"; then
-            sudo pacman -Rns --noconfirm xf86-video-nouveau || log_error "Failed to remove xf86-video-nouveau"
+    if dnf list installed xorg-x11-drv-nouveau &>/dev/null; then
+        log_warn "Conflicting package detected: xorg-x11-drv-nouveau (conflicts with NVIDIA proprietary driver)"
+        if confirm_action "Remove xorg-x11-drv-nouveau?"; then
+            sudo dnf remove -y xorg-x11-drv-nouveau || log_error "Failed to remove xorg-x11-drv-nouveau"
         else
             conflicts_found=true
         fi
     fi
     
     # Check for conflicting power management tools
-    if pacman -Qi laptop-mode-tools &>/dev/null; then
+    if dnf list installed laptop-mode-tools &>/dev/null; then
         log_warn "Conflicting package detected: laptop-mode-tools (conflicts with TLP)"
         if confirm_action "Remove laptop-mode-tools?"; then
-            sudo pacman -Rns --noconfirm laptop-mode-tools || log_error "Failed to remove laptop-mode-tools"
+            sudo dnf remove -y laptop-mode-tools || log_error "Failed to remove laptop-mode-tools"
         else
             conflicts_found=true
         fi
     fi
     
     # Check for conflicting CPU frequency scaling tools
-    if pacman -Qi cpufrequtils &>/dev/null; then
+    if dnf list installed cpufrequtils &>/dev/null; then
         log_warn "Conflicting package detected: cpufrequtils (may conflict with auto-cpufreq)"
         if confirm_action "Remove cpufrequtils?"; then
-            sudo pacman -Rns --noconfirm cpufrequtils || log_error "Failed to remove cpufrequtils"
+            sudo dnf remove -y cpufrequtils || log_error "Failed to remove cpufrequtils"
+        else
+            conflicts_found=true
+        fi
+    fi
+            sudo dnf remove -y cpufrequtils || log_error "Failed to remove cpufrequtils"
         else
             conflicts_found=true
         fi
@@ -600,63 +642,49 @@ detect_package_conflicts() {
     fi
 }
 
-# ASUS repository setup and GPG key management
+# ASUS COPR repository setup
 setup_asus_repository() {
-    log_info "Setting up ASUS Linux repository..."
+    log_info "Setting up ASUS Linux COPR repository..."
     
     if [[ "$DRY_RUN" == true ]]; then
-        log_info "[DRY RUN] Would set up ASUS Linux repository"
+        log_info "[DRY RUN] Would set up ASUS Linux COPR repository"
         return 0
     fi
     
-    local asus_repo_url="https://gitlab.com/asus-linux/asus-linux-drivers/-/raw/main/pkg"
-    local keyring_url="https://gitlab.com/asus-linux/asus-linux-drivers/-/raw/main/pkg/asus-linux-keyring-1-1-any.pkg.tar.xz"
-    local temp_keyring="/tmp/asus-linux-keyring.pkg.tar.xz"
-    
-    # Check if repository is already configured
-    if grep -q "asus-linux" /etc/pacman.conf; then
-        log_debug "ASUS Linux repository already configured"
-        return 0
+    # Install dnf-plugins-core for COPR support
+    if ! dnf list installed dnf-plugins-core &>/dev/null; then
+        log_info "Installing dnf-plugins-core..."
+        if ! sudo dnf install -y dnf-plugins-core; then
+            log_error "Failed to install dnf-plugins-core"
+            return 1
+        fi
     fi
     
-    # Download and install keyring
-    log_info "Installing ASUS Linux keyring..."
-    if ! wget -O "$temp_keyring" "$keyring_url"; then
-        log_error "Failed to download ASUS Linux keyring"
+    # Enable ASUS Linux COPR repository
+    log_info "Enabling ASUS Linux COPR repository..."
+    if ! sudo dnf copr enable -y lukenukem/asus-linux; then
+        log_error "Failed to enable ASUS Linux COPR repository"
         return 1
     fi
     
-    if ! sudo pacman -U --noconfirm "$temp_keyring"; then
-        log_error "Failed to install ASUS Linux keyring"
-        rm -f "$temp_keyring"
-        return 1
+    # Enable RPM Fusion for additional drivers
+    log_info "Enabling RPM Fusion repositories..."
+    if ! sudo dnf install -y https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm; then
+        log_warn "Failed to install RPM Fusion free repository"
     fi
     
-    rm -f "$temp_keyring"
-    
-    # Add repository to pacman.conf
-    log_info "Adding ASUS Linux repository to pacman.conf..."
-    
-    # Create backup of pacman.conf
-    sudo cp /etc/pacman.conf /etc/pacman.conf.backup
-    
-    # Add ASUS repository
-    cat << EOF | sudo tee -a /etc/pacman.conf
-
-# ASUS Linux Repository
-[asus-linux]
-SigLevel = Required DatabaseOptional
-Server = https://gitlab.com/asus-linux/asus-linux-drivers/-/raw/main/pkg
-EOF
+    if ! sudo dnf install -y https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm; then
+        log_warn "Failed to install RPM Fusion nonfree repository"
+    fi
     
     # Update package database
     log_info "Updating package database..."
-    if ! sudo pacman -Sy; then
+    if ! sudo dnf makecache; then
         log_error "Failed to update package database"
         return 1
     fi
     
-    log_success "ASUS Linux repository configured successfully"
+    log_success "ASUS Linux COPR repository configured successfully"
     return 0
 }
 
@@ -669,13 +697,8 @@ update_system() {
         return 0
     fi
     
-    # Update keyring first to avoid signature issues
-    if ! sudo pacman -Sy archlinux-keyring; then
-        log_warn "Failed to update archlinux-keyring, continuing anyway..."
-    fi
-    
     # Full system update
-    if ! sudo pacman -Syu --noconfirm; then
+    if ! sudo dnf upgrade -y; then
         log_error "Failed to update system packages"
         return 1
     fi
@@ -736,9 +759,15 @@ setup_packages() {
         failed_groups+=("power management")
     fi
     
+    # Install auto-cpufreq via pip if not available in repos
+    log_info "Installing auto-cpufreq..."
+    if ! install_auto_cpufreq; then
+        log_warn "Failed to install auto-cpufreq, power management may be less optimal"
+    fi
+    
     # Install ASUS packages (optional)
     log_info "Installing ASUS packages..."
-    if ! install_aur_package_group_with_recovery "ASUS" ASUS_PACKAGES; then
+    if ! install_copr_package_group_with_recovery "ASUS" ASUS_PACKAGES; then
         failed_groups+=("ASUS")
     fi
     
@@ -830,21 +859,27 @@ install_package_group_with_recovery() {
     return 1
 }
 
-# Enhanced AUR package group installation with recovery
-install_aur_package_group_with_recovery() {
+# Enhanced COPR package group installation with recovery
+install_copr_package_group_with_recovery() {
     local group_name="$1"
     local -n package_array=$2
     local failed_packages=()
     local max_group_retries=2
     local retry_count=0
     
-    log_info "Installing $group_name AUR packages with recovery..."
+    log_info "Installing $group_name COPR packages with recovery..."
     
-    # Ensure yay is available
-    if ! command -v yay &>/dev/null; then
-        log_info "Installing yay AUR helper..."
-        if ! install_yay_helper; then
-            log_error "Failed to install yay AUR helper"
+    # Ensure COPR is available
+    if ! command -v dnf &>/dev/null; then
+        log_error "DNF package manager not available"
+        return 1
+    fi
+    
+    # Ensure COPR plugin is installed
+    if ! dnf list installed dnf-plugins-core &>/dev/null; then
+        log_info "Installing dnf-plugins-core for COPR support..."
+        if ! sudo dnf install -y dnf-plugins-core; then
+            log_error "Failed to install dnf-plugins-core"
             return 1
         fi
     fi
@@ -853,28 +888,28 @@ install_aur_package_group_with_recovery() {
         failed_packages=()
         
         for package in "${package_array[@]}"; do
-            if ! install_aur_package "$package"; then
+            if ! install_copr_package "$package"; then
                 failed_packages+=("$package")
             fi
         done
         
         if [[ ${#failed_packages[@]} -eq 0 ]]; then
-            log_success "All $group_name AUR packages installed successfully"
+            log_success "All $group_name COPR packages installed successfully"
             return 0
         else
             retry_count=$((retry_count + 1))
-            log_warn "Failed to install some $group_name AUR packages: ${failed_packages[*]} (attempt $retry_count/$max_group_retries)"
+            log_warn "Failed to install some $group_name COPR packages: ${failed_packages[*]} (attempt $retry_count/$max_group_retries)"
             
             if [[ $retry_count -lt $max_group_retries ]]; then
-                log_info "Attempting AUR package recovery..."
-                # Clear yay cache and retry
-                yay -Scc --noconfirm || true
+                log_info "Attempting COPR package recovery..."
+                # Clear dnf cache and retry
+                sudo dnf clean all || true
                 sleep 5
             fi
         fi
     done
     
-    log_error "Failed to install $group_name AUR packages after $max_group_retries attempts: ${failed_packages[*]}"
+    log_error "Failed to install $group_name COPR packages after $max_group_retries attempts: ${failed_packages[*]}"
     return 1
 }
 
@@ -896,7 +931,7 @@ retry_failed_package_groups() {
                 install_package_group_with_recovery "power management" POWER_PACKAGES
                 ;;
             "ASUS")
-                install_aur_package_group_with_recovery "ASUS" ASUS_PACKAGES
+                install_copr_package_group_with_recovery "ASUS" ASUS_PACKAGES
                 ;;
         esac
     done
@@ -909,23 +944,17 @@ validate_package_installation() {
     local validation_errors=()
     
     # Check critical packages
-    local critical_packages=("mesa" "nvidia" "nvidia-utils" "tlp")
+    local critical_packages=("mesa-dri-drivers" "akmod-nvidia" "tlp")
     
     for package in "${critical_packages[@]}"; do
-        if ! pacman -Qi "$package" &>/dev/null; then
+        if ! dnf list installed "$package" &>/dev/null; then
             validation_errors+=("Critical package not installed: $package")
         fi
     done
     
     # Check package database integrity
-    if ! pacman -Dk &>/dev/null; then
+    if ! dnf check &>/dev/null; then
         validation_errors+=("Package database integrity check failed")
-    fi
-    
-    # Check for broken dependencies
-    local broken_deps=$(pacman -Qk 2>&1 | grep -c "warning" || echo "0")
-    if [[ $broken_deps -gt 0 ]]; then
-        validation_errors+=("Found $broken_deps package warnings")
     fi
     
     if [[ ${#validation_errors[@]} -eq 0 ]]; then
@@ -2121,7 +2150,7 @@ main() {
     log_info "Starting system validation..."
     
     # System checks
-    check_arch_linux
+    check_fedora
     check_root_privileges
     check_internet_connection
     check_hardware_compatibility
@@ -2330,9 +2359,9 @@ update_initramfs() {
         return 0
     fi
     
-    # Check if mkinitcpio is available
-    if ! command -v mkinitcpio &>/dev/null; then
-        log_error "mkinitcpio not found. Cannot update initramfs."
+    # Check if dracut is available
+    if ! command -v dracut &>/dev/null; then
+        log_error "dracut not found. Cannot update initramfs."
         return 1
     fi
     
@@ -2345,7 +2374,7 @@ update_initramfs() {
     if [[ ${#kernels[@]} -eq 0 ]]; then
         log_warn "No kernels found in /lib/modules/"
         # Try the generic approach
-        if sudo mkinitcpio -P; then
+        if sudo dracut --regenerate-all --force; then
             log_success "Initramfs updated successfully (generic)"
             return 0
         else
@@ -2361,7 +2390,7 @@ update_initramfs() {
     for kernel in "${kernels[@]}"; do
         log_info "Updating initramfs for kernel: $kernel"
         
-        if sudo mkinitcpio -k "$kernel" -g "/boot/initramfs-${kernel}.img"; then
+        if sudo dracut --force "/boot/initramfs-${kernel}.img" "$kernel"; then
             success_kernels+=("$kernel")
             log_success "Updated initramfs for kernel: $kernel"
         else
@@ -2370,11 +2399,11 @@ update_initramfs() {
         fi
     done
     
-    # Try the preset approach as fallback
+    # Try the regenerate-all approach as fallback
     if [[ ${#failed_kernels[@]} -gt 0 ]]; then
-        log_info "Trying preset-based initramfs update as fallback..."
-        if sudo mkinitcpio -P; then
-            log_success "Initramfs updated successfully using presets"
+        log_info "Trying regenerate-all approach as fallback..."
+        if sudo dracut --regenerate-all --force; then
+            log_success "Initramfs updated successfully using regenerate-all"
             return 0
         fi
     fi
@@ -2407,8 +2436,8 @@ update_grub_config() {
         return 0
     fi
     
-    if ! command -v grub-mkconfig &>/dev/null; then
-        log_warn "grub-mkconfig not found. Cannot update GRUB configuration."
+    if ! command -v grub2-mkconfig &>/dev/null; then
+        log_warn "grub2-mkconfig not found. Cannot update GRUB configuration."
         return 0
     fi
     
@@ -2479,19 +2508,19 @@ update_grub_config() {
     # Regenerate GRUB configuration
     log_info "Regenerating GRUB configuration..."
     
-    # Determine the correct GRUB config path
+    # Determine the correct GRUB config path (Fedora uses grub2)
     local grub_cfg_path=""
-    if [[ -d "/boot/grub" ]]; then
-        grub_cfg_path="/boot/grub/grub.cfg"
-    elif [[ -d "/boot/grub2" ]]; then
+    if [[ -d "/boot/grub2" ]]; then
         grub_cfg_path="/boot/grub2/grub.cfg"
+    elif [[ -d "/boot/grub" ]]; then
+        grub_cfg_path="/boot/grub/grub.cfg"
     else
         log_warn "Could not determine GRUB configuration directory"
         return 1
     fi
     
     # Generate new GRUB configuration
-    if sudo grub-mkconfig -o "$grub_cfg_path"; then
+    if sudo grub2-mkconfig -o "$grub_cfg_path"; then
         log_success "GRUB configuration regenerated successfully"
         return 0
     else

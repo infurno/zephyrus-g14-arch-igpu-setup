@@ -536,7 +536,7 @@ validate_system_state() {
     fi
     
     # Check package manager
-    if ! pacman -Q >/dev/null 2>&1; then
+    if ! dnf list >/dev/null 2>&1; then
         validation_errors+=("Package manager not responding")
     fi
     

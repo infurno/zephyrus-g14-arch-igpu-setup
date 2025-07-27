@@ -62,7 +62,7 @@ recover_package_install_failure() {
     # Step 1: Update package database
     ((recovery_steps++))
     log_info "Step 1: Updating package database..."
-    if sudo pacman -Sy; then
+    if sudo dnf makecache; then
         log_success "Package database updated"
         ((successful_steps++))
     else
@@ -72,7 +72,7 @@ recover_package_install_failure() {
     # Step 2: Clear package cache
     ((recovery_steps++))
     log_info "Step 2: Clearing package cache..."
-    if sudo pacman -Scc --noconfirm; then
+    if sudo dnf clean all; then
         log_success "Package cache cleared"
         ((successful_steps++))
     else

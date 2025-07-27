@@ -1,6 +1,6 @@
-# ASUS ROG Zephyrus G14 Arch Linux Setup
+# ASUS ROG Zephyrus G14 Fedora 42 Setup
 
-Comprehensive setup repository for ASUS ROG Zephyrus G14 laptops with hybrid GPU configuration (AMD iGPU + NVIDIA dGPU) on Arch Linux. This project optimizes your laptop for maximum battery life using the AMD integrated GPU while maintaining seamless access to the NVIDIA discrete GPU for gaming and CUDA workloads.
+Comprehensive setup repository for ASUS ROG Zephyrus G14 laptops with hybrid GPU configuration (AMD iGPU + NVIDIA dGPU) on Fedora 42. This project optimizes your laptop for maximum battery life using the AMD integrated GPU while maintaining seamless access to the NVIDIA discrete GPU for gaming and CUDA workloads.
 
 ## Table of Contents
 
@@ -56,14 +56,14 @@ Comprehensive setup repository for ASUS ROG Zephyrus G14 laptops with hybrid GPU
 ## Prerequisites
 
 ### System Requirements
-- **Operating System**: Fresh Arch Linux installation
+- **Operating System**: Fresh Fedora 42 installation
 - **Internet Connection**: Required for package downloads
 - **User Privileges**: Regular user account with sudo access
 - **Hardware**: ASUS ROG Zephyrus G14 or compatible laptop
 
 ### Pre-Installation Checklist
-1. Complete a fresh Arch Linux installation
-2. Ensure system is up to date: `sudo pacman -Syu`
+1. Complete a fresh Fedora 42 installation
+2. Ensure system is up to date: `sudo dnf upgrade`
 3. Verify internet connectivity
 4. Confirm sudo privileges: `sudo -v`
 5. Backup any existing configurations
@@ -74,8 +74,8 @@ Comprehensive setup repository for ASUS ROG Zephyrus G14 laptops with hybrid GPU
 
 ```bash
 # Clone the repository
-git clone https://github.com/infurno/zephyrus-g14-arch-igpu-setup.git
-cd zephyrus-g14-arch-igpu-setup
+git clone https://github.com/infurno/zephyrus-g14-fedora-igpu-setup.git
+cd zephyrus-g14-fedora-igpu-setup
 
 # Make the setup script executable
 chmod +x setup.sh
@@ -187,7 +187,7 @@ gpu-info
 
 ```bash
 # Check power management status
-tlp-stat
+sudo tlp-stat
 
 # Monitor CPU frequency scaling
 watch -n 1 'cat /proc/cpuinfo | grep MHz'
@@ -243,7 +243,7 @@ asusctl profile -P performance # Performance mode
 ### Repository Structure
 
 ```
-zephyrus-g14-arch-igpu-setup/
+zephyrus-g14-fedora-igpu-setup/
 ├── setup.sh                           # Main installation script
 ├── setup.bat                          # Windows wrapper (informational)
 ├── configs/                           # Configuration files
@@ -364,6 +364,33 @@ cd zephyrus-g14-arch-igpu-setup
 ## License
 
 This project is provided as-is for educational and personal use. See the LICENSE file for details.
+
+## Changelog from Arch Linux Version
+
+### Version 2.0.0-fedora42
+**Major Refactoring for Fedora 42 Support**
+
+- **Package Manager Migration**: Replaced `pacman` with `dnf` throughout the codebase
+- **Package Names Update**: Mapped Arch package names to Fedora equivalents:
+  - `linux-headers` → `kernel-headers` + `kernel-devel`
+  - `mesa` → `mesa-dri-drivers`
+  - `nvidia` → `akmod-nvidia`
+  - `base-devel` → `@development-tools`
+- **Repository Management**: Replaced Arch AUR with Fedora COPR for ASUS packages
+- **System Tools**: Updated system-specific commands:
+  - `mkinitcpio` → `dracut` for initramfs generation
+  - `grub-mkconfig` → `grub2-mkconfig` for GRUB configuration
+  - GRUB paths updated for Fedora's `/boot/grub2/` structure
+- **OS Detection**: Updated system validation to check for Fedora 42+
+- **Auto-cpufreq Installation**: Added pip fallback installation for auto-cpufreq
+- **Network Checks**: Updated to use `fedoraproject.org` for connectivity testing
+
+### Key Features Maintained
+- Hybrid AMD/NVIDIA GPU configuration
+- Power management optimization for battery life
+- ASUS ROG hardware integration
+- Comprehensive error handling and rollback system
+- Modular configuration approach
 
 ## Acknowledgments
 
